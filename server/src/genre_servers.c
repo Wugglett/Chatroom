@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "genre_servers.h"
 
-extern struct gserver* main_server;
+struct gserver* main_server;
 
 pthread_mutex_t main_server_lock;
 
@@ -15,7 +16,6 @@ void initServer()
     main_server->end_message = 0;
     main_server->start = NULL;
     main_server->end = NULL;
-
 
     pthread_mutex_init(&main_server_lock, NULL);
 }
@@ -33,8 +33,9 @@ void moveHead()
 void addMessage(char* value) 
 {
     struct message* m = malloc(sizeof(struct message));
-    m->message_num = ++main_server->end_message;
+    m->message_num = main_server->end_message++;
     m->next = NULL;
+    m->value = malloc(strlen(value));
     m->value = value;
 
     pthread_mutex_lock(&main_server_lock);
@@ -45,20 +46,25 @@ void addMessage(char* value)
     }
     else 
     {
-        ((struct message*)(main_server->end))->next = m;
+        main_server->end->next = m;
         main_server->end = m;
     }
     pthread_mutex_unlock(&main_server_lock);
 
-    main_server->end_message++;
+    printf("Start message: %s\n", main_server->start->value);
 }
 
+// Error here returning the wrong message for some reason
 char* getMessageAtIndex(int message_num) 
 {
+    pthread_mutex_lock(&main_server_lock);
+
     struct message* m = main_server->start;
-    while (m->message_num <= message_num) 
+    while (m->message_num < message_num) 
     {
         m = m->next;
     }
+    pthread_mutex_unlock(&main_server_lock);
+
     return m->value;
 }

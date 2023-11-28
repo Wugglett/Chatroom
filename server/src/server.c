@@ -10,7 +10,7 @@
 #include "genre_servers.h"
 #include "server_thread.h"
 
-struct gserver* main_server;
+extern struct gserver* main_server;
 
 int attemptReceive(long sock, void* message, size_t n);
 
@@ -65,7 +65,6 @@ int main()
         printf("Connection succeeded! Creating thread to handle client\n");
 
         pthread_create(&thread_t, NULL, server_handler, (void*)sock);
-        pthread_detach(thread_t);
 
         sleep(1);
         printf("Returning to ");
@@ -189,7 +188,6 @@ void* server_handler(void* sock)
     }
 
 out:
-    printf("errno: %d\n", errno);
     removeThread(getThread(pthread_self()));
 
     printf("Terminating connection in thread %d\n\n", pthread_self());
@@ -233,6 +231,7 @@ void* debug(void* arg)
         }
         else 
         {
+            printf("Trying to print message %d...\n", m->message_num);
             printf("Message #%d: %s\n", m->message_num, m->value);
             m = m->next;
         }
