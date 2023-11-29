@@ -4,16 +4,15 @@
 #include "server_thread.h"
 #include "genre_servers.h"
 
-struct server_thread* server_head;
-struct server_thread* server_tail;
-
-extern struct gserver* main_server;
+static struct server_thread* server_head;
+static struct server_thread* server_tail;
 
 pthread_mutex_t server_list_lock;
 
-void initHead() 
+void initThreadList() 
 {
     server_head = NULL;
+    server_tail = NULL;
     pthread_mutex_init(&server_list_lock, NULL);
 }
 
@@ -21,7 +20,7 @@ void addThread(pthread_t thread)
 {
     struct server_thread* s = malloc(sizeof(struct server_thread));
     s->thread = thread;
-    s->current_message = main_server->start_message;
+    s->current_message = getStartMessageIndex();
     s->next = NULL;
 
     pthread_mutex_lock(&server_list_lock);

@@ -2,6 +2,8 @@
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
         "*.embeddedhtml": "html",
-        "string.h": "c"
+        "string.h": "c",
+        "server_thread.h": "c",
+        "genre_servers.h": "c"
     }
 }

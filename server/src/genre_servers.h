@@ -1,27 +1,32 @@
 #ifndef GENRE
     #define GENRE
 
-    struct message 
+    #include <pthread.h>
+
+    #define MAX_MESSAGES 200
+    #define MAX_MESSAGE_LENGTH 200
+
+    struct server_message
     {
-        int message_num;
-        void* next;
-        char* value;
+        pthread_t thread;
+        char message[MAX_MESSAGE_LENGTH];
     };
 
-    struct gserver 
+    struct message_handler
     {
-        int start_message;
-        int end_message;
-        struct message* start;
-        struct message* end;
+        int start;
+        int end;
+        struct server_message messages[MAX_MESSAGES];
     };
 
     void initServer();
 
-    void moveHead();
+    void addMessage(pthread_t thread, char* value);
 
-    void addMessage(char* value);
+    char* getMessageAtIndex(int index);
 
-    char* getMessageAtIndex(int message_num);
+    int getEndMessageIndex();
+
+    int getStartMessageIndex();
 
 #endif

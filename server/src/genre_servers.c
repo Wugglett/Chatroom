@@ -2,69 +2,68 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "genre_servers.h"
 
-struct gserver* main_server;
+static struct message_handler server_messages;
 
 pthread_mutex_t main_server_lock;
 
 void initServer() 
 {
-    main_server = malloc(sizeof(struct gserver));
-    main_server->start_message = 0;
-    main_server->end_message = 0;
-    main_server->start = NULL;
-    main_server->end = NULL;
-
     pthread_mutex_init(&main_server_lock, NULL);
-}
 
-void moveHead() 
-{
-    struct message* temp = main_server->start;
-    pthread_mutex_lock(&main_server_lock);
-    main_server->start = temp->next;
-    main_server->start_message++;
-    pthread_mutex_unlock(&main_server_lock);
-    free(temp);
-}
-
-void addMessage(char* value) 
-{
-    struct message* m = malloc(sizeof(struct message));
-    m->message_num = main_server->end_message++;
-    m->next = NULL;
-    m->value = malloc(strlen(value));
-    m->value = value;
-
-    pthread_mutex_lock(&main_server_lock);
-    if (main_server->start == NULL) 
+    server_messages.start = 0;
+    server_messages.end = 0;
+    for (int i = 0; i < MAX_MESSAGES; i++)
     {
-        main_server->start = m;
-        main_server->end = m;
+        struct server_message sm = {0, {'N', 'U', 'L', 'L'}};
+        server_messages.messages[i] = sm;
     }
-    else 
-    {
-        main_server->end->next = m;
-        main_server->end = m;
-    }
-    pthread_mutex_unlock(&main_server_lock);
-
-    printf("Start message: %s\n", main_server->start->value);
 }
 
-// Error here returning the wrong message for some reason
-char* getMessageAtIndex(int message_num) 
+void addMessage(pthread_t thread, char* value)
 {
     pthread_mutex_lock(&main_server_lock);
 
-    struct message* m = main_server->start;
-    while (m->message_num < message_num) 
-    {
-        m = m->next;
-    }
-    pthread_mutex_unlock(&main_server_lock);
+    struct server_message m;
+    m.thread = thread;
+    strcpy(m.message, value);
 
-    return m->value;
+    server_messages.messages[server_messages.end] = m;
+    server_messages.start = server_messages.end;
+    server_messages.end = (server_messages.end + 1) % MAX_MESSAGES;
+
+    pthread_mutex_unlock(&main_server_lock);
+}
+
+char* getMessageAtIndex(int index)
+{
+    pthread_mutex_lock(&main_server_lock);
+    printf("Fetching message at index %d: %s\n", index, server_messages.messages[index].message);
+    return server_messages.messages[index].message;
+    pthread_mutex_unlock(&main_server_lock);
+}
+
+int getEndMessageIndex()
+{
+    return server_messages.end;
+}
+
+int getStartMessageIndex()
+{
+    return server_messages.start;
+}
+
+void* debugMessageList(void* v)
+{
+    int i = 0;
+    while (1)
+    {
+        printf("Message %d: %s\n", i+1, server_messages.messages[i].message);
+        i = (i + 1) % MAX_MESSAGES;
+        sleep(1);
+    }
 }

@@ -10,7 +10,7 @@
         void* next;
     };
 
-    void initHead();
+    void initThreadList();
 
     void addThread(pthread_t thread);
 

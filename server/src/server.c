@@ -5,24 +5,15 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
-#include <errno.h>
 
 #include "genre_servers.h"
 #include "server_thread.h"
 
-extern struct gserver* main_server;
-
 int attemptReceive(long sock, void* message, size_t n);
-
 int attemptSend(long sock, void* message, size_t n);
-
 void* server_handler(void* sock);
-
 short socketCreate();
-
 int bindCreatedSocket(int hSocket);
-
-void* debug(void* arg);
 
 int main() 
 {
@@ -30,10 +21,10 @@ int main()
     long sock = 0;
     struct sockaddr_in client;
     pthread_t thread_t;
-     pthread_t debug_t;
+    pthread_t debug_t;
 
     initServer();
-    initHead();
+    initThreadList();
 
     socket_desc = socketCreate();
     if (socket_desc == -1) 
@@ -47,8 +38,6 @@ int main()
         printf("Failed to bind socket\n");
         return 1;
     }
-
-    pthread_create(&debug_t, NULL, debug, NULL);
 
     listen(socket_desc, 10);
 
@@ -148,8 +137,8 @@ void* server_handler(void* sock)
 {
     addThread(pthread_self());
 
-    char message[200] = "Welcome to the chat room! Now loading messages...\n";
-    char client_message[200];
+    char message[MAX_MESSAGE_LENGTH] = "Welcome to the chat room! Now loading messages...\n";
+    char client_message[MAX_MESSAGE_LENGTH];
     struct server_thread* thread = getThread(pthread_self());
 
     if (sendMessage((long)sock, message) < 0)
@@ -164,14 +153,14 @@ void* server_handler(void* sock)
     while(1)
     {
         memset(client_message, 0, sizeof(client_message));
-        if (thread->current_message != main_server->end_message)
+        if (thread->current_message != getEndMessageIndex())
         {
             printf("Sending message #%d...\n", thread->current_message);
             strcpy(message, getMessageAtIndex(thread->current_message));
-            if (sendMessage((long)sock, message) == 0) thread->current_message++;
+            if (sendMessage((long)sock, message) == 0) thread->current_message = (thread->current_message + 1) % MAX_MESSAGES;
             else
             {
-                // gracefully close thread
+                // gracefully close thread due error
                 goto out;
             }
         }
@@ -179,12 +168,16 @@ void* server_handler(void* sock)
 
         if (receiveMessage((long)sock, client_message) < 0)
         {
-            // gracefully close thread
+            // gracefully close thread due to error
             goto out;
         }
-        if (strcmp(client_message, quit_command) == 0) break;
+        if (strcmp(client_message, quit_command) == 0)
+        {
+            // gracefully close thread due to client quit command
+            goto out;
+        }
         printf("Client said: %s\n", client_message);
-        addMessage(client_message);
+        addMessage(pthread_self(), client_message);
     }
 
 out:
@@ -217,24 +210,4 @@ int bindCreatedSocket(int hSocket)
     iRetVal = bind(hSocket, (struct sockaddr*) &remote, sizeof remote);
 
     return iRetVal;
-}
-
-void* debug(void* arg)
-{
-    struct message* m = main_server->start;
-    while(1)
-    {
-        if (m == NULL) 
-        {
-            printf("No more messages to print\n");
-            m = main_server->start;
-        }
-        else 
-        {
-            printf("Trying to print message %d...\n", m->message_num);
-            printf("Message #%d: %s\n", m->message_num, m->value);
-            m = m->next;
-        }
-        sleep(1);
-    }
 }
