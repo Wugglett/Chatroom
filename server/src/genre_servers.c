@@ -39,11 +39,11 @@ void addMessage(pthread_t thread, char* value)
     pthread_mutex_unlock(&main_server_lock);
 }
 
-char* getMessageAtIndex(int index)
+struct server_message getMessageAtIndex(int index)
 {
     pthread_mutex_lock(&main_server_lock);
     printf("Fetching message at index %d: %s\n", index, server_messages.messages[index].message);
-    return server_messages.messages[index].message;
+    return server_messages.messages[index];
     pthread_mutex_unlock(&main_server_lock);
 }
 

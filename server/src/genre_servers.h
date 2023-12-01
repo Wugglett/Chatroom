@@ -1,5 +1,5 @@
-#ifndef GENRE
-    #define GENRE
+#ifndef GENRE_H
+    #define GENRE_H
 
     #include <pthread.h>
 
@@ -23,7 +23,7 @@
 
     void addMessage(pthread_t thread, char* value);
 
-    char* getMessageAtIndex(int index);
+    struct server_message* getMessageAtIndex(int index);
 
     int getEndMessageIndex();
 
