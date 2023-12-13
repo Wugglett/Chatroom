@@ -43,8 +43,8 @@ struct server_message getMessageAtIndex(int index)
 {
     pthread_mutex_lock(&main_server_lock);
     printf("Fetching message at index %d: %s\n", index, server_messages.messages[index].message);
-    return server_messages.messages[index];
     pthread_mutex_unlock(&main_server_lock);
+    return server_messages.messages[index];
 }
 
 int getEndMessageIndex()

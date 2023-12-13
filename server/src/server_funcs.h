@@ -1,7 +1,7 @@
 #ifndef SERVER_H
     #define SERVER_H
 
-    int attemptReceive(long sock, void* message, size_t n);
+    int attemptReceive(long sock, void* message, size_t n, int* rv);
 
     int attemptSend(long sock, void* message, size_t n);
 

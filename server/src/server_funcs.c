@@ -7,10 +7,45 @@
 #include <stdlib.h>
 
 #include "server_funcs.h"
+#include "genre_servers.h"
+#include "server_thread.h"
 
-int attemptReceive(long sock, void* message, size_t n) 
+short socketCreate() 
 {
-    if (recv(sock, message, n, 0) < 0) 
+    short hSocket = 0;
+    printf("Created socket\n");
+    hSocket = socket(AF_INET, SOCK_STREAM, 0);
+    return hSocket;
+}
+
+int bindCreatedSocket(int hSocket) 
+{
+    int iRetVal = -1;
+    int clientPort = 12345;
+
+    struct sockaddr_in remote = {0};
+
+    remote.sin_family = AF_INET;
+
+    remote.sin_addr.s_addr = htonl(INADDR_ANY);
+    remote.sin_port = htons(clientPort);
+
+    iRetVal = bind(hSocket, (struct sockaddr*) &remote, sizeof remote);
+
+    return iRetVal;
+}
+
+int checkSocket(long sock)
+{
+    int rv = 0;
+    char m[1024];
+    rv = recv(sock, (void*)m, sizeof(m), MSG_PEEK);
+    return rv;
+}
+
+int attemptReceive(long sock, void* message, size_t n, int* rv) 
+{
+    if ((*rv = recv(sock, message, n, 0)) < 0) 
     {
         printf("Recieve failed in thread %d\n", pthread_self());
         return -1;
@@ -50,11 +85,11 @@ int sendMessage(long sock, char* message)
     return 0;
 }
 
-int receiveMessage(long sock, char* message)
+int receiveMessage(long sock, char* message, int* rv)
 {
     // Get size of message prior to receiving the message
     int size = 0;
-    if (attemptReceive(sock, &size, sizeof(int)) < 0)
+    if (attemptReceive(sock, &size, sizeof(int), rv) < 0)
     {
         // gracefully close thread
         printf("Failed to receive size of message from client\n");
@@ -62,7 +97,7 @@ int receiveMessage(long sock, char* message)
     }
 
     int time_out = 10000;
-    while (recv(sock, message, sizeof(message), MSG_PEEK) < size && time_out-- > 0);
+    while ((*rv = recv(sock, message, sizeof(message), MSG_PEEK)) < size && time_out-- > 0);
 
     // if loop has ended by time out, report error
     if (time_out <= 0)
@@ -72,7 +107,7 @@ int receiveMessage(long sock, char* message)
         return -2;
     }
 
-    recv(sock, message, sizeof(message), 0);
+    *rv = recv(sock, message, sizeof(message), 0);
 
     return 0;
 }
@@ -93,7 +128,7 @@ void* server_handler(void* sock)
 
     printf("Thread %d: Sent welcome message...\n", pthread_self());
 
-    char* quit_command = "/quit";
+    char* quit_command[2] = {"/quit", "/exit"};
     while(1)
     {
         memset(client_message, 0, sizeof(client_message));
@@ -112,24 +147,42 @@ void* server_handler(void* sock)
                     goto out;
                 }
             }
+            else
+            { 
+                printf("Not sending message %d: Thread is owner of message\n", thread->current_message);
+            }
+
             thread->current_message = (thread->current_message + 1) % MAX_MESSAGES;
         }
         else
         {
             printf("Thread %d: No unread messages, now waiting to receive...\n", pthread_self());
-
-            if (receiveMessage((long)sock, client_message) < 0)
+            // If there is data to be read then start message reception
+            if (checkSocket((long)sock) > 0)
             {
-                // gracefully close thread due to error
-                goto out;
+                int rv = 0;
+                if (receiveMessage((long)sock, client_message, &rv) < 0)
+                {
+                    // gracefully close thread due to error
+                    goto out;
+                }
+                if (strcmp(client_message, quit_command[0]) == 0 || strcmp(client_message, quit_command[1]) == 0)
+                {
+                    // gracefully close thread due to client quit command
+                    printf("Client %d entered quit command...\n", pthread_self());
+                    goto out;
+                }
+                if (rv > 0)
+                {
+                    printf("Client said: %s and size was %d\n", client_message, rv);
+                    addMessage(pthread_self(), client_message);
+                }
             }
-            if (strcmp(client_message, quit_command) == 0)
+            else
             {
-                // gracefully close thread due to client quit command
-                goto out;
+                printf("Nothing in socket buffer to read...\n");
+                sleep(1);    
             }
-            printf("Client said: %s\n", client_message);
-            addMessage(pthread_self(), client_message);
         }
     }
 
@@ -138,29 +191,4 @@ out:
 
     printf("Terminating connection in thread %d\n\n", pthread_self());
     pthread_exit(NULL);
-}
-
-short socketCreate() 
-{
-    short hSocket = 0;
-    printf("Created socket\n");
-    hSocket = socket(AF_INET, SOCK_STREAM, 0);
-    return hSocket;
-}
-
-int bindCreatedSocket(int hSocket) 
-{
-    int iRetVal = -1;
-    int clientPort = 12345;
-
-    struct sockaddr_in remote = {0};
-
-    remote.sin_family = AF_INET;
-
-    remote.sin_addr.s_addr = htonl(INADDR_ANY);
-    remote.sin_port = htons(clientPort);
-
-    iRetVal = bind(hSocket, (struct sockaddr*) &remote, sizeof remote);
-
-    return iRetVal;
 }

@@ -23,7 +23,7 @@
 
     void addMessage(pthread_t thread, char* value);
 
-    struct server_message* getMessageAtIndex(int index);
+    struct server_message getMessageAtIndex(int index);
 
     int getEndMessageIndex();
 

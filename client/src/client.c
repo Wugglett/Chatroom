@@ -9,6 +9,8 @@
 
 int close_check = 0;
 
+FILE* chatlog;
+
 short socketCreate() 
 {
     short hSocket = 0;
@@ -48,13 +50,16 @@ int socketSendStr(int hSocket, char* Rqst, short lenRqst)
     int retval = -1;
 
     // Always send string size first
-    int size = strlen(Rqst);
+    int size = lenRqst;
     retval = send(hSocket, &size, sizeof(size), 0);
 
     if (retval <= 0) return retval;
 
     // Then send actual string
     retval = send(hSocket, Rqst, lenRqst, 0);
+    // Writing to DEBUG file
+    fprintf(chatlog, "%s\n", Rqst);
+    
 
     return retval;
 }
@@ -95,7 +100,7 @@ void* client_handler(void* sock)
     printf("Closing receiving thread...\n");
 }
 
-int main(int argc, char** argv) 
+int main(int argc, char** argv)
 {
 
     long hSocket = 0;
@@ -103,6 +108,8 @@ int main(int argc, char** argv)
     int sendToServer;
     char server_reply[200] = {0};
     pthread_t thread;
+    
+    chatlog = fopen("chatlog.txt", "a");
 
     hSocket = socketCreate();
 
@@ -127,13 +134,16 @@ int main(int argc, char** argv)
     pthread_create(&thread, NULL, client_handler, (void*)hSocket);
 
     char client_message[200] = {0};
-    memset(client_message, 0, sizeof(client_message));
     while(1)
     {
         printf("\"username\": ");
+
+        // Clear the message string every loop
+        memset(client_message, 0, sizeof(client_message));
+
         scanf("%s", client_message);
         // If client enters one of two quit commands then end connection
-        socketSendStr(hSocket, client_message, sizeof(client_message));
+        socketSendStr(hSocket, client_message, strlen(client_message));
         if (strcmp(client_message, "/quit") == 0 || strcmp(client_message, "/exit") == 0) break; // break out of loop to close application
     }
 
@@ -142,6 +152,8 @@ int main(int argc, char** argv)
     close(hSocket);
 
     printf("Closing sending/main thread...\n");
+
+    fclose(chatlog);
 
     return 0;
 }
