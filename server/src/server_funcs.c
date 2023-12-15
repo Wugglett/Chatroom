@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "server_funcs.h"
 #include "genre_servers.h"
@@ -66,7 +67,7 @@ int attemptSend(long sock, void* message, size_t n)
 int sendMessage(long sock, char* message)
 {
     // Send size of meesage prior to actual message
-    int size = strlen(message);
+    uint64_t size = strlen(message);
     if(attemptSend(sock, &size, sizeof(int)) < 0)
     {
         // gracefully close thread
@@ -88,7 +89,7 @@ int sendMessage(long sock, char* message)
 int receiveMessage(long sock, char* message, int* rv)
 {
     // Get size of message prior to receiving the message
-    int size = 0;
+    uint64_t size = 0;
     if (attemptReceive(sock, &size, sizeof(int), rv) < 0)
     {
         // gracefully close thread
@@ -97,17 +98,24 @@ int receiveMessage(long sock, char* message, int* rv)
     }
 
     int time_out = 10000;
-    while ((*rv = recv(sock, message, sizeof(message), MSG_PEEK)) < size && time_out-- > 0);
+    int nbytes = 0;
+    int n = 0;
+
+    while (nbytes < size && time_out-- > 0)
+    {
+        attemptReceive(sock, (message + nbytes), sizeof(message), &n);
+        nbytes += n;
+    }
+
+    *rv = nbytes;
 
     // if loop has ended by time out, report error
     if (time_out <= 0)
     {
         // gracefully close thread
-        printf("Failed to receive message from client\n");
+        printf("Failed to receive message from client. Timed out\n");
         return -2;
     }
-
-    *rv = recv(sock, message, sizeof(message), 0);
 
     return 0;
 }
